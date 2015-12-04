@@ -1,23 +1,5 @@
-<<<<<<< HEAD
-# DeepKnowledgeTracing
-source code for the paper Deep Knowledge Tracing. http://stanford.edu/~cpiech/bio/papers/deepKnowledgeTracing.pdf
+This project is forked from Deep Knowledge Tracing.
 
-At the moment the code doesn't include LSTM model, only RNN (I will upload LSTM when I get a chance).
+I modified tiny bit of code so the code works with torch 7.
 
-Questions people have asked me:
-----------
-```
-Q. How do you handle multiple students during training? It looks like sequences (ie. data of different 
-students) of different length are padded to the same length.
-A. Correct. This is very important for training speed.
-```
-
-```
-Q. Does the training code have a termination condition?
-A. No. I save a copy of the model each epoch and let training run until I feel like terminating it. You can 
-start training 
-from any saved model (where you left off).
-```
-=======
-# dkt
->>>>>>> 60a70510c2ac6dd19488829bfc3d1326bd250e34
+I pulled new ASSISTments data. The data consists of students problem logs from 100 skill builders in the time period from Jan, 2015 to Nov. 2015.
