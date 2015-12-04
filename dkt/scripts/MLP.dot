@@ -1,0 +1,41 @@
+digraph G {
+	graph [bb="0,0,256,716"];
+	node [label="\N",
+		shape=oval
+	];
+	n1	 [height=1.3356,
+		label="Node1\ninput = {Tensor[10]}\lmodule = nn.Linear(10 -> 1)\lgradOutput = {Tensor[1]}",
+		pos="128,160",
+		tooltip="[/home/siyuan/Workspace/dkt/scripts/test.lua]:25",
+		width=3.4507];
+	n2	 [height=1.041,
+		label="Node2\ninput = {Tensor[1]}\lgradOutput = {Tensor[1]}",
+		pos="128,38",
+		tooltip="[[C]]:-1",
+		width=3.1506];
+	n1 -> n2	 [pos="e,128,75.722 128,111.57 128,103.1 128,94.269 128,85.81"];
+	n3	 [height=1.3356,
+		label="Node3\ninput = {Tensor[10]}\lmodule = nn.Tanh\lgradOutput = {Tensor[10]}",
+		pos="128,292",
+		tooltip="[/home/siyuan/Workspace/dkt/scripts/test.lua]:24",
+		width=3.279];
+	n3 -> n1	 [pos="e,128,208.48 128,243.7 128,235.54 128,226.99 128,218.6"];
+	n4	 [height=1.3356,
+		label="Node4\ninput = {Tensor[20]}\lmodule = nn.Linear(20 -> 10)\lgradOutput = {Tensor[10]}",
+		pos="128,424",
+		tooltip="[/home/siyuan/Workspace/dkt/scripts/test.lua]:24",
+		width=3.5652];
+	n4 -> n3	 [pos="e,128,340.48 128,375.7 128,367.54 128,358.99 128,350.6"];
+	n5	 [height=1.3356,
+		label="Node5\ninput = {Tensor[20]}\lmodule = nn.Identity\lgradOutput = {Tensor[20]}",
+		pos="128,556",
+		tooltip="[/home/siyuan/Workspace/dkt/scripts/test.lua]:20",
+		width=3.279];
+	n5 -> n4	 [pos="e,128,472.48 128,507.7 128,499.54 128,490.99 128,482.6"];
+	n6	 [height=1.041,
+		label="Node6\ninput = {Tensor[20]}\lgradOutput = {Tensor[20]}",
+		pos="128,678",
+		tooltip="[[C]]:-1",
+		width=3.279];
+	n6 -> n5	 [pos="e,128,604.5 128,640.34 128,632.22 128,623.42 128,614.68"];
+}
