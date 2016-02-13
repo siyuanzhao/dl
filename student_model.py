@@ -58,15 +58,10 @@ class StudentModel(object):
             inputs = tf.sparse_to_dense(concated, tf.pack([batch_size, input_size]), 1.0, 0.0)
             inputs.set_shape([batch_size, input_size])
 
-        outputs = []
-        states = []
         state = self._initial_state
         with tf.variable_scope("RNN"):
-            #outputs, states = rnn.rnn(cell, inputs, initial_state=self._initial_state)
             (cell_output, state) = cell(inputs, state)
-            #outputs = cell_output
-            self._final_state = self._initial_state = state
-
+            self._final_state = state
 
         # calculate the logits from last hidden layer to output layer
         softmax_w = tf.get_variable("softmax_w", [size, num_skills])
@@ -75,17 +70,17 @@ class StudentModel(object):
 
         # from output nodes to pick up the right one we want
         logits = tf.reshape(logits, [-1])
-        logit_values = tf.gather(logits, self.target_id)
+        selected_logits = tf.gather(logits, self.target_id)
 
         #make prediction
-        self._pred = self._pred_values = pred_values = tf.sigmoid(logit_values)
+        self._pred = self._pred_values = pred_values = tf.sigmoid(selected_logits)
 
-        loss = -tf.reduce_sum(target_correctness*tf.log(pred_values)+(1-target_correctness)*tf.log(1-pred_values))
+        #loss = -tf.reduce_sum(target_correctness*tf.log(pred_values)+(1-target_correctness)*tf.log(1-pred_values))
         # loss function
-        #loss = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(logit_values, target_correctness))
+        loss = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(selected_logits, target_correctness))
 
-        self._cost = cost = tf.reduce_mean(loss)
-        #self._cost = cost = loss
+        #self._cost = cost = tf.reduce_mean(loss)
+        self._cost = cost = loss / batch_size
 
         if not is_training:
             return
@@ -165,6 +160,7 @@ class HyperParamsConfig(object):
   """Small config."""
   init_scale = 0.05
   learning_rate = 0.35
+  num_layer = 1
   max_grad_norm = 4
   hidden_size = 500
   max_epoch = 10
@@ -181,7 +177,7 @@ def run_epoch(session, m, fileName, eval_op, verbose=False):
     """Runs the model on the given data."""
     start_time = time.time()
 
-    state = tf.zeros([m.batch_size, m.hidden_size])
+    state = m.initial_state.eval()
     inputs, targets = read_data_from_csv_file(fileName)
     index = 0
     pred_labels = []
@@ -200,9 +196,9 @@ def run_epoch(session, m, fileName, eval_op, verbose=False):
 
         index += m.batch_size
 
-        cost, pred, state, _ = session.run([m.cost, m.pred, m.final_state, eval_op], feed_dict={
+        pred, state, _ = session.run([m.pred, m.final_state, eval_op], feed_dict={
             m.input_data: x,m.target_id: target_id,
-            m.target_correctness: target_correctness})
+            m.target_correctness: target_correctness, m.initial_state: state})
 
         for p in pred:
             pred_labels.append(p)
@@ -332,6 +328,10 @@ def main(unused_args):
   eval_config = HyperParamsConfig()
   eval_config.batch_size = 1
 
+  train_data_path = "data/14-15_skill_builders_100_train.csv"
+  test_data_path = "data/14-15_skill_builders_100_test.csv"
+  result_file_path = "14-15_skill_builders_results"
+
   model_name = "model_variables"
 
   start_over = True #if False, will store variables from disk
@@ -354,12 +354,21 @@ def main(unused_args):
 
     tf.initialize_all_variables().run()
     saver = tf.train.Saver()
+
+    # log hyperparameters to results file
+    with open(result_file_path, "a+") as f:
+        print("Writing hyperparameters into file")
+        f.write("Hidden layer size: %d \n" % (config.hidden_size))
+        f.write("Dropout rate: %.3f \n" % (config.keep_prob))
+        f.write("Batch size: %d \n" % (config.batch_size))
+        f.write("Max grad norm: %d \n" % (config.max_grad_norm))
+
     for i in range(config.max_max_epoch):
       lr_decay = config.lr_decay ** max(i - config.max_epoch, 0)
       m.assign_lr(session, config.learning_rate * lr_decay)
 
       print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(m.lr)))
-      rmse, auc, r2 = run_epoch(session, m, "data/2010_no_duo_no_sub_no_ms_builder_train.csv", m.train_op,
+      rmse, auc, r2 = run_epoch(session, m, train_data_path, m.train_op,
                                    verbose=True)
       print("Epoch: %d Train Metrics:\n rmse: %.3f \t auc: %.3f \t r2: %.3f \n" % (i + 1, rmse, auc, r2))
       #valid_perplexity = run_epoch(session, mvalid, valid_data, tf.no_op())
@@ -370,10 +379,10 @@ def main(unused_args):
           save_path = saver.save(session, model_name)
           print("*"*10)
           print("Start to test model....")
-          rmse, auc, r2 = run_epoch(session, mtest, "data/2010_no_duo_no_sub_no_ms_builder_test.csv", tf.no_op())
+          rmse, auc, r2 = run_epoch(session, mtest, test_data_path, tf.no_op())
           print("Epoch: %d Test Metrics:\n rmse: %.3f \t auc: %.3f \t r2: %.3f" % ((i+1)/3, rmse, auc, r2))
-          with open("2010_no_duo_no_sub_no_ms_metrics_results1", "a+") as f:
-              f.write("Epoch: %d Test Perplexity:\n rmse: %.3f \t auc: %.3f \t r2: %.3f" % ((i+1)/3, rmse, auc, r2))
+          with open(result_file_path, "a+") as f:
+              f.write("Epoch: %d Test Metrics:\n rmse: %.3f \t auc: %.3f \t r2: %.3f" % ((i+1)/3, rmse, auc, r2))
               f.write("\n")
 
           print("*"*10)
