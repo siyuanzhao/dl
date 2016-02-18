@@ -168,7 +168,7 @@ class HyperParamsConfig(object):
   """Small config."""
   init_scale = 0.05
   num_steps = 0
-  learning_rate = 0.35
+  learning_rate = 0.25
   num_layer = 1
   max_grad_norm = 4
   hidden_size = 300
@@ -179,7 +179,7 @@ class HyperParamsConfig(object):
   num_skills = 111
   momentum = 0.95
   min_lr = 0.0001
-  batch_size = 3
+  batch_size = 50
 
 
 def run_epoch(session, m, students, eval_op, verbose=False):
@@ -189,11 +189,14 @@ def run_epoch(session, m, students, eval_op, verbose=False):
     index = 0
     pred_labels = []
     actual_labels = []
+    count = 1
     while(index+m.batch_size < len(students)):
+        if verbose:
+            print "Running " + str(count) + " batch"
         x = np.zeros((m.batch_size, m.num_steps))
         target_id = []
         target_correctness = []
-        count = 0
+        count+=1
         for i in range(m.batch_size):
             student = students[index+i]
             problem_ids = student[1]
@@ -211,13 +214,16 @@ def run_epoch(session, m, students, eval_op, verbose=False):
                 actual_labels.append(int(correctness[j+1]))
 
         index += m.batch_size
-
+        if verbose:
+            print "feeding variables into graph"
         pred, _ = session.run([m.pred, eval_op], feed_dict={
             m.input_data: x, m.target_id: target_id,
             m.target_correctness: target_correctness})
 
         for p in pred:
             pred_labels.append(p)
+    if verbose:
+        print "finish all batches."
     #print pred_labels
     rmse = sqrt(mean_squared_error(actual_labels, pred_labels))
     fpr, tpr, thresholds = metrics.roc_curve(actual_labels, pred_labels, pos_label=1)
