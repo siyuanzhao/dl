@@ -28,12 +28,13 @@ class StudentModel(object):
         self._min_lr = config.min_lr
         self.num_skills = num_skills = config.num_skills
         self.hidden_size = config.hidden_size
+        self.num_steps = num_steps = config.num_steps
         size = config.hidden_size
         input_size = num_skills*2
 
-        inputs = self._input_data = tf.placeholder(tf.int32, [batch_size])
-        self._target_id = target_id = tf.placeholder(tf.int32, [batch_size])
-        self._target_correctness = target_correctness = tf.placeholder(tf.float32, [batch_size])
+        inputs = self._input_data = tf.placeholder(tf.int32, [batch_size, num_steps])
+        self._target_id = target_id = tf.placeholder(tf.int32, [None])
+        self._target_correctness = target_correctness = tf.placeholder(tf.float32, [None])
 
         hidden1 = rnn_cell.LSTMCell(size, input_size)
         #hidden2 = rnn_cell.LSTMCell(size, size)
@@ -50,23 +51,30 @@ class StudentModel(object):
         # initial state
         self._initial_state = cell.zero_state(batch_size, tf.float32)
 
+        input_data = tf.reshape(self._input_data, [-1])
         #one-hot encoding
         with tf.device("/cpu:0"):
-            labels = tf.expand_dims(self._input_data, 1)
-            indices = tf.expand_dims(tf.range(0, batch_size, 1), 1)
+            labels = tf.expand_dims(input_data, 1)
+            indices = tf.expand_dims(tf.range(0, batch_size*num_steps, 1), 1)
             concated = tf.concat(1, [indices, labels])
-            inputs = tf.sparse_to_dense(concated, tf.pack([batch_size, input_size]), 1.0, 0.0)
-            inputs.set_shape([batch_size, input_size])
+            inputs = tf.sparse_to_dense(concated, tf.pack([batch_size*num_steps, input_size]), 1.0, 0.0)
+            inputs.set_shape([batch_size*num_steps, input_size])
 
-        state = self._initial_state
-        with tf.variable_scope("RNN"):
-            (cell_output, state) = cell(inputs, state)
-            self._final_state = state
+        # [batch_size, num_steps, input_size]
+        inputs = tf.reshape(inputs, [batch_size, num_steps, input_size])
+        inputs = [tf.squeeze(input_, [1]) for input_ in tf.split(1, num_steps, inputs)]
+        outputs, state = rnn.rnn(cell, inputs, initial_state=self._initial_state)
 
+        #state = self._initial_state
+        #with tf.variable_scope("RNN"):
+        #    (cell_output, state) = cell(inputs, state)
+        #    self._final_state = state
+
+        output = tf.reshape(tf.concat(1, outputs), [-1, size])
         # calculate the logits from last hidden layer to output layer
         softmax_w = tf.get_variable("softmax_w", [size, num_skills])
         softmax_b = tf.get_variable("softmax_b", [num_skills])
-        logits = tf.matmul(cell_output, softmax_w) + softmax_b
+        logits = tf.matmul(output, softmax_w) + softmax_b
 
         # from output nodes to pick up the right one we want
         logits = tf.reshape(logits, [-1])
@@ -80,7 +88,7 @@ class StudentModel(object):
         loss = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(selected_logits, target_correctness))
 
         #self._cost = cost = tf.reduce_mean(loss)
-        self._cost = cost = loss / batch_size
+        self._cost = cost = loss
 
         if not is_training:
             return
@@ -159,46 +167,54 @@ class StudentModel(object):
 class HyperParamsConfig(object):
   """Small config."""
   init_scale = 0.05
+  num_steps = 0
   learning_rate = 0.35
   num_layer = 1
   max_grad_norm = 4
-  hidden_size = 500
-  max_epoch = 10
+  hidden_size = 300
+  max_epoch = 5
   max_max_epoch = 500
   keep_prob = 0.6
   lr_decay = 0.9
   num_skills = 111
   momentum = 0.95
   min_lr = 0.0001
-  batch_size = 50
+  batch_size = 3
 
 
-def run_epoch(session, m, fileName, eval_op, verbose=False):
+def run_epoch(session, m, students, eval_op, verbose=False):
     """Runs the model on the given data."""
     start_time = time.time()
 
-    state = m.initial_state.eval()
-    inputs, targets = read_data_from_csv_file(fileName)
     index = 0
     pred_labels = []
     actual_labels = []
-    while(index+m.batch_size < len(inputs)):
-        x = inputs[index:index+m.batch_size]
-        y = targets[index:index+m.batch_size]
+    while(index+m.batch_size < len(students)):
+        x = np.zeros((m.batch_size, m.num_steps))
         target_id = []
         target_correctness = []
         count = 0
-        for item in y:
-            target_id.append(count*m.num_skills + item[0])
-            target_correctness.append(item[1])
-            actual_labels.append(item[1])
-            count += 1
+        for i in range(m.batch_size):
+            student = students[index+i]
+            problem_ids = student[1]
+            correctness = student[2]
+            for j in range(len(problem_ids)-1):
+                problem_id = int(problem_ids[j])
+                label_index = 0
+                if(int(correctness[j]) == 0):
+                    label_index = problem_id
+                else:
+                    label_index = problem_id + m.num_skills
+                x[i, j] = label_index
+                target_id.append(i*m.num_steps*m.num_skills+j*m.num_skills+int(problem_ids[j+1]))
+                target_correctness.append(int(correctness[j+1]))
+                actual_labels.append(int(correctness[j+1]))
 
         index += m.batch_size
 
-        pred, state, _ = session.run([m.pred, m.final_state, eval_op], feed_dict={
-            m.input_data: x,m.target_id: target_id,
-            m.target_correctness: target_correctness, m.initial_state: state})
+        pred, _ = session.run([m.pred, eval_op], feed_dict={
+            m.input_data: x, m.target_id: target_id,
+            m.target_correctness: target_correctness})
 
         for p in pred:
             pred_labels.append(p)
@@ -218,6 +234,7 @@ def read_data_from_csv_file(fileName):
     targets = []
     rows = []
     skills_num = config.num_skills
+    max_num_problems = 0
     with open(fileName, "rb") as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         for row in reader:
@@ -232,6 +249,8 @@ def read_data_from_csv_file(fileName):
         if(problems_num <= 2):
             index += 3
         else:
+            if problems_num > max_num_problems:
+                max_num_problems = problems_num
             tup = (rows[index], rows[index+1], rows[index+2])
             tuple_rows.append(tup)
             index += 3
@@ -239,88 +258,8 @@ def read_data_from_csv_file(fileName):
 
     random.shuffle(tuple_rows)
     print "The number of students is ", len(tuple_rows)
-    while(i < len(tuple_rows)):
-        #skip the num is smaller than 2
-        tup = tuple_rows[i]
-        problems_num = int(tup[0][0])
-        if(problems_num <= 2):
-            i += 1
-        else:
-            problem_ids = tup[1]
-            correctness = tup[2]
-            for j in range(len(problem_ids)-1):
-
-                problem_id = int(problem_ids[j])
-
-                label_index = 0
-                if(int(correctness[j]) == 0):
-                    label_index = problem_id
-                else:
-                    label_index = problem_id + skills_num
-                inputs.append(label_index)
-                target_instance = [int(problem_ids[j+1]), int(correctness[j+1])]
-                targets.append(target_instance)
-            i += 1
     print "Finish reading data"
-    return inputs, targets
-
-'''
-def read_data_from_csv_file(fileName):
-    config = HyperParamsConfig()
-
-    rows = []
-    skills_num = config.num_skills
-    with open(fileName, "rb") as csvfile:
-        reader = csv.reader(csvfile, delimiter=',')
-        for row in reader:
-            rows.append(row)
-    index = 0
-    i = 0
-    print "the number of rows is " + str(len(rows))
-    tuple_rows = []
-    #turn list to tuple
-    while(index < len(rows)-1):
-        problems_num = int(rows[index][0])
-        if(problems_num <= 2):
-            index += 3
-        else:
-            tup = (rows[index], rows[index+1], rows[index+2])
-            tuple_rows.append(tup)
-            index += 3
-    #shuffle the tuple
-
-    random.shuffle(tuple_rows)
-    print "The number of students is ", len(tuple_rows)
-    student_data = []
-    while(i < len(tuple_rows)):
-        #skip the num is smaller than 2
-        tup = tuple_rows[i]
-        problems_num = int(tup[0][0])
-        if(problems_num <= 2):
-            i += 1
-        else:
-            inputs = []
-            targets = []
-            problem_ids = tup[1]
-            correctness = tup[2]
-            for j in range(len(problem_ids)-1):
-
-                problem_id = int(problem_ids[j])
-
-                label_index = 0
-                if(int(correctness[j]) == 0):
-                    label_index = problem_id
-                else:
-                    label_index = problem_id + skills_num
-                inputs.append(label_index)
-                target_instance = [int(problem_ids[j+1]), int(correctness[j+1])]
-                targets.append(target_instance)
-            student_data.append((inputs, targets))
-            i += 1
-    print "Finish reading data"
-    return student_data
-'''
-
+    return tuple_rows, max_num_problems
 
 def main(unused_args):
 
@@ -328,11 +267,17 @@ def main(unused_args):
   eval_config = HyperParamsConfig()
   eval_config.batch_size = 1
 
-  train_data_path = "data/14-15_skill_builders_100_train.csv"
-  test_data_path = "data/14-15_skill_builders_100_test.csv"
-  result_file_path = "14-15_skill_builders_results"
+  train_data_path = "data/2010_no_duo_no_sub_no_ms_builder_train.csv"
+  test_data_path = "data/2010_no_duo_no_sub_no_ms_builder_test.csv"
+  result_file_path = "2010_no_duo_no_sub_no_ms_builder_results"
 
-  model_name = "model_variables"
+  model_name = "2010_no_duo_no_sub_no_ms_builder_variables"
+
+  train_students, train_max_num_problems = read_data_from_csv_file(train_data_path)
+  config.num_steps = train_max_num_problems
+
+  test_students, test_max_num_problems = read_data_from_csv_file(test_data_path)
+  eval_config.num_steps = test_max_num_problems
 
   start_over = True #if False, will store variables from disk
 
@@ -368,7 +313,7 @@ def main(unused_args):
       m.assign_lr(session, config.learning_rate * lr_decay)
 
       print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(m.lr)))
-      rmse, auc, r2 = run_epoch(session, m, train_data_path, m.train_op,
+      rmse, auc, r2 = run_epoch(session, m, train_students, m.train_op,
                                    verbose=True)
       print("Epoch: %d Train Metrics:\n rmse: %.3f \t auc: %.3f \t r2: %.3f \n" % (i + 1, rmse, auc, r2))
       #valid_perplexity = run_epoch(session, mvalid, valid_data, tf.no_op())
@@ -379,7 +324,7 @@ def main(unused_args):
           save_path = saver.save(session, model_name)
           print("*"*10)
           print("Start to test model....")
-          rmse, auc, r2 = run_epoch(session, mtest, test_data_path, tf.no_op())
+          rmse, auc, r2 = run_epoch(session, mtest, test_students, tf.no_op())
           print("Epoch: %d Test Metrics:\n rmse: %.3f \t auc: %.3f \t r2: %.3f" % ((i+1)/3, rmse, auc, r2))
           with open(result_file_path, "a+") as f:
               f.write("Epoch: %d Test Metrics:\n rmse: %.3f \t auc: %.3f \t r2: %.3f" % ((i+1)/3, rmse, auc, r2))
