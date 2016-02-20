@@ -1,0 +1,64 @@
+Hidden layer size: 500 
+Dropout rate: 0.600 
+Batch size: 200 
+Max grad norm: 4 
+Hidden layer size: 500 
+Dropout rate: 0.600 
+Batch size: 200 
+Max grad norm: 4 
+Epoch: 1 Test Metrics:
+ rmse: 0.463 	 auc: 0.632 	 r2: 0.049
+Epoch: 2 Test Metrics:
+ rmse: 0.458 	 auc: 0.662 	 r2: 0.071
+Epoch: 3 Test Metrics:
+ rmse: 0.452 	 auc: 0.679 	 r2: 0.092
+Epoch: 4 Test Metrics:
+ rmse: 0.449 	 auc: 0.687 	 r2: 0.104
+Epoch: 5 Test Metrics:
+ rmse: 0.448 	 auc: 0.693 	 r2: 0.111
+Epoch: 6 Test Metrics:
+ rmse: 0.447 	 auc: 0.696 	 r2: 0.115
+Epoch: 7 Test Metrics:
+ rmse: 0.446 	 auc: 0.699 	 r2: 0.118
+Epoch: 8 Test Metrics:
+ rmse: 0.445 	 auc: 0.700 	 r2: 0.120
+Epoch: 9 Test Metrics:
+ rmse: 0.445 	 auc: 0.702 	 r2: 0.121
+Epoch: 10 Test Metrics:
+ rmse: 0.445 	 auc: 0.702 	 r2: 0.121
+Epoch: 11 Test Metrics:
+ rmse: 0.445 	 auc: 0.703 	 r2: 0.122
+Epoch: 12 Test Metrics:
+ rmse: 0.445 	 auc: 0.703 	 r2: 0.123
+Epoch: 13 Test Metrics:
+ rmse: 0.445 	 auc: 0.703 	 r2: 0.123
+Epoch: 14 Test Metrics:
+ rmse: 0.445 	 auc: 0.703 	 r2: 0.123
+Epoch: 15 Test Metrics:
+ rmse: 0.445 	 auc: 0.704 	 r2: 0.123
+Epoch: 16 Test Metrics:
+ rmse: 0.445 	 auc: 0.704 	 r2: 0.123
+Epoch: 17 Test Metrics:
+ rmse: 0.444 	 auc: 0.704 	 r2: 0.123
+Epoch: 18 Test Metrics:
+ rmse: 0.445 	 auc: 0.704 	 r2: 0.123
+Epoch: 19 Test Metrics:
+ rmse: 0.445 	 auc: 0.704 	 r2: 0.123
+Epoch: 20 Test Metrics:
+ rmse: 0.444 	 auc: 0.704 	 r2: 0.123
+Epoch: 21 Test Metrics:
+ rmse: 0.445 	 auc: 0.704 	 r2: 0.123
+Epoch: 22 Test Metrics:
+ rmse: 0.444 	 auc: 0.704 	 r2: 0.123
+Epoch: 23 Test Metrics:
+ rmse: 0.444 	 auc: 0.704 	 r2: 0.124
+Epoch: 24 Test Metrics:
+ rmse: 0.444 	 auc: 0.704 	 r2: 0.123
+Epoch: 25 Test Metrics:
+ rmse: 0.444 	 auc: 0.704 	 r2: 0.123
+Epoch: 26 Test Metrics:
+ rmse: 0.444 	 auc: 0.704 	 r2: 0.123
+Epoch: 27 Test Metrics:
+ rmse: 0.444 	 auc: 0.704 	 r2: 0.123
+Epoch: 28 Test Metrics:
+ rmse: 0.444 	 auc: 0.704 	 r2: 0.123
