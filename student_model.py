@@ -36,6 +36,7 @@ class StudentModel(object):
         self._target_id = target_id = tf.placeholder(tf.int32, [None])
         self._target_correctness = target_correctness = tf.placeholder(tf.float32, [None])
 
+        self._early_stop = early_stop = tf.placeholder(tf.float32, [batch_size])
         hidden1 = rnn_cell.LSTMCell(size, input_size)
         #hidden2 = rnn_cell.LSTMCell(size, size)
         #hidden3 = rnn_cell.LSTMCell(size, size)
@@ -46,7 +47,8 @@ class StudentModel(object):
             #hidden2 = rnn_cell.DropoutWrapper(hidden2, output_keep_prob=config.keep_prob)
             #hidden3 = rnn_cell.DropoutWrapper(hidden3, output_keep_prob=config.keep_prob)
 
-        cell = rnn_cell.MultiRNNCell([hidden1])
+        #cell = rnn_cell.MultiRNNCell([hidden1])
+        cell = hidden1
 
         # initial state
         self._initial_state = cell.zero_state(batch_size, tf.float32)
@@ -63,7 +65,7 @@ class StudentModel(object):
         # [batch_size, num_steps, input_size]
         inputs = tf.reshape(inputs, [batch_size, num_steps, input_size])
         inputs = [tf.squeeze(input_, [1]) for input_ in tf.split(1, num_steps, inputs)]
-        outputs, state = rnn.rnn(cell, inputs, initial_state=self._initial_state)
+        outputs, state = rnn.rnn(cell, inputs, initial_state=self._initial_state, sequence_length=early_stop)
 
         #state = self._initial_state
         #with tf.variable_scope("RNN"):
@@ -108,6 +110,10 @@ class StudentModel(object):
             session.run(tf.assign(self._lr, lr_value))
         else:
             session.run(tf.assign(self._lr, self.min_lr))
+
+    @property
+    def early_stop(self):
+        return self._early_stop
 
     @property
     def batch_size(self):
@@ -176,10 +182,10 @@ class HyperParamsConfig(object):
   max_max_epoch = 500
   keep_prob = 0.6
   lr_decay = 0.9
-  num_skills = 111
+  num_skills = 171
   momentum = 0.95
   min_lr = 0.0001
-  batch_size = 50
+  batch_size = 150
 
 
 def run_epoch(session, m, students, eval_op, verbose=False):
@@ -196,12 +202,17 @@ def run_epoch(session, m, students, eval_op, verbose=False):
         x = np.zeros((m.batch_size, m.num_steps))
         target_id = []
         target_correctness = []
+        early_stop = []
         count+=1
         for i in range(m.batch_size):
             student = students[index+i]
+            num_problems = int(student[0][0])
+            early_stop.append(num_problems)
             problem_ids = student[1]
             correctness = student[2]
             for j in range(len(problem_ids)-1):
+                if(j >= m.num_steps):
+                    break
                 problem_id = int(problem_ids[j])
                 label_index = 0
                 if(int(correctness[j]) == 0):
@@ -218,7 +229,7 @@ def run_epoch(session, m, students, eval_op, verbose=False):
             print "feeding variables into graph"
         pred, _ = session.run([m.pred, eval_op], feed_dict={
             m.input_data: x, m.target_id: target_id,
-            m.target_correctness: target_correctness})
+            m.target_correctness: target_correctness, m.early_stop: early_stop})
 
         for p in pred:
             pred_labels.append(p)
@@ -271,19 +282,20 @@ def main(unused_args):
 
   config = HyperParamsConfig()
   eval_config = HyperParamsConfig()
-  eval_config.batch_size = 1
+  eval_config.batch_size = 100
 
-  train_data_path = "data/2010_no_duo_no_sub_no_ms_builder_train.csv"
-  test_data_path = "data/2010_no_duo_no_sub_no_ms_builder_test.csv"
-  result_file_path = "2010_no_duo_no_sub_no_ms_builder_results"
+  train_data_path = "data/sk_train.csv"
+  test_data_path = "data/sk_test.csv"
+  result_file_path = "sk_results_0220"
 
-  model_name = "2010_no_duo_no_sub_no_ms_builder_variables"
+  model_name = "sk_variables_0220"
 
   train_students, train_max_num_problems = read_data_from_csv_file(train_data_path)
   config.num_steps = train_max_num_problems
-
+  print "the max number of steps in train is %d" % config.num_steps
   test_students, test_max_num_problems = read_data_from_csv_file(test_data_path)
   eval_config.num_steps = test_max_num_problems
+  print "the max number of steps in test is %d" % eval_config.num_steps
 
   start_over = True #if False, will store variables from disk
 
@@ -317,7 +329,7 @@ def main(unused_args):
     for i in range(config.max_max_epoch):
       lr_decay = config.lr_decay ** max(i - config.max_epoch, 0)
       m.assign_lr(session, config.learning_rate * lr_decay)
-
+      train_students, train_max_num_problems = read_data_from_csv_file(train_data_path)
       print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(m.lr)))
       rmse, auc, r2 = run_epoch(session, m, train_students, m.train_op,
                                    verbose=True)
@@ -325,15 +337,16 @@ def main(unused_args):
       #valid_perplexity = run_epoch(session, mvalid, valid_data, tf.no_op())
       #print("Epoch: %d Valid Perplexity: %.3f" % (i + 1, valid_perplexity))
 
-      if((i+1) % 3 == 0):
+      if((i+1) % 2 == 0):
           print "Save variables to disk"
           save_path = saver.save(session, model_name)
           print("*"*10)
           print("Start to test model....")
+          test_students, test_max_num_problems = read_data_from_csv_file(test_data_path)
           rmse, auc, r2 = run_epoch(session, mtest, test_students, tf.no_op())
-          print("Epoch: %d Test Metrics:\n rmse: %.3f \t auc: %.3f \t r2: %.3f" % ((i+1)/3, rmse, auc, r2))
+          print("Epoch: %d Test Metrics:\n rmse: %.3f \t auc: %.3f \t r2: %.3f" % ((i+1)/2, rmse, auc, r2))
           with open(result_file_path, "a+") as f:
-              f.write("Epoch: %d Test Metrics:\n rmse: %.3f \t auc: %.3f \t r2: %.3f" % ((i+1)/3, rmse, auc, r2))
+              f.write("Epoch: %d Test Metrics:\n rmse: %.3f \t auc: %.3f \t r2: %.3f" % ((i+1)/2, rmse, auc, r2))
               f.write("\n")
 
           print("*"*10)
