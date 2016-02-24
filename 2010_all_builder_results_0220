@@ -1,0 +1,22 @@
+Hidden layer size: 300 
+Dropout rate: 0.600 
+Batch size: 150 
+Max grad norm: 4 
+Hidden layer size: 300 
+Dropout rate: 0.600 
+Batch size: 150 
+Max grad norm: 4 
+Epoch: 1 Test Metrics:
+ rmse: 0.375 	 auc: 0.840 	 r2: 0.333
+Epoch: 2 Test Metrics:
+ rmse: 0.374 	 auc: 0.841 	 r2: 0.336
+Epoch: 3 Test Metrics:
+ rmse: 0.374 	 auc: 0.839 	 r2: 0.334
+Epoch: 4 Test Metrics:
+ rmse: 0.371 	 auc: 0.846 	 r2: 0.347
+Epoch: 5 Test Metrics:
+ rmse: 0.370 	 auc: 0.848 	 r2: 0.351
+Epoch: 6 Test Metrics:
+ rmse: 0.368 	 auc: 0.851 	 r2: 0.359
+Epoch: 7 Test Metrics:
+ rmse: 0.368 	 auc: 0.851 	 r2: 0.359
