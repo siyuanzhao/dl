@@ -12,7 +12,7 @@ def clean_str(string):
     Tokenization/string cleaning for all datasets except for SST.
     Original taken from https://github.com/yoonkim/CNN_sentence/blob/master/process_data.py
     """
-    string = re.sub(r"[^A-Za-z0-9(),!?\'\`]", " ", string)
+    string = re.sub(r"[^A-Za-z0-9(),!?\'\`\.]", " ", string)
     string = re.sub(r"\'s", " \'s", string)
     string = re.sub(r"\'ve", " \'ve", string)
     string = re.sub(r"n\'t", " n\'t", string)
@@ -20,6 +20,7 @@ def clean_str(string):
     string = re.sub(r"\'d", " \'d", string)
     string = re.sub(r"\'ll", " \'ll", string)
     string = re.sub(r",", " , ", string)
+    string = re.sub(r"\.", " . ", string)
     string = re.sub(r"!", " ! ", string)
     string = re.sub(r"\(", " \( ", string)
     string = re.sub(r"\)", " \) ", string)
@@ -35,7 +36,7 @@ def load_data_and_labels():
     """
     # Load data from files
     rows = []
-    fileName = "./data/733104_open_response_data_plain.csv"
+    fileName = "./data/psaphax_open_response_data_plain.csv"
     # deal with csv file
     with open(fileName, "rb") as csvfile:
         reader = csv.reader(csvfile, delimiter='|')
@@ -45,7 +46,7 @@ def load_data_and_labels():
     x_text = []
     y = []
     for row in rows:
-        x_text.append(row[0]+" "+row[2])
+        x_text.append(row[0]+" <PAD/> "+row[2])
         # Generate labels
         y.append(row[1])
 

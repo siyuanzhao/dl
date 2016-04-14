@@ -20,7 +20,7 @@ tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (defau
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularizaion lambda (default: 0.0)")
 
 # Training parameters
-tf.flags.DEFINE_integer("batch_size", 5, "Batch Size (default: 5)")
+tf.flags.DEFINE_integer("batch_size", 50, "Batch Size (default: 50)")
 tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many steps (default: 100)")
@@ -49,8 +49,8 @@ x_shuffled = x[shuffle_indices]
 y_shuffled = y[shuffle_indices]
 # Split train/test set
 # TODO: This is very crude, should use cross-validation
-x_train, x_dev = x_shuffled[:-20], x_shuffled[-20:]
-y_train, y_dev = y_shuffled[:-20], y_shuffled[-20:]
+x_train, x_dev = x_shuffled[:-300], x_shuffled[-300:]
+y_train, y_dev = y_shuffled[:-300], y_shuffled[-300:]
 print("Vocabulary Size: {:d}".format(len(vocabulary)))
 print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
 
